@@ -2,10 +2,35 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <syslog.h>
+#include<fcntl.h>
+#include<limits.h>
 
+#ifdef OPEN_MAX
+static int openmax=OPEN_MAX;
+#else
+static int openmax=0;
+#endif
+
+#define OPEN_MAX_GUESS 256;
+
+#ifdef _PC_PATH_MAX
+static int pathmax=_PC_PATH_MAX;
+#else
+static int pathmax=0;
+#endif
+
+#define PATH_MAX_GUESS 1024;
 static void err_doit(int,const char*,va_list);
 char *pname=NULL;
 extern int debug=1;
+
+void err_ret(const char *fmt, ...){
+    va_list ap;
+    va_start(ap,fmt);
+    err_doit(1,fmt,ap);
+    va_end(ap);
+    return;
+}
 
 void 
 err_sys(const char *fmt, ...){
@@ -144,4 +169,64 @@ void pr_exit(int status)
 #endif
 	else if(WIFSTOPPED(status))
 		printf("child stopped, signal number = %d\n",WSTOPSIG(status));
+}
+
+char *path_alloc(int *size){
+    char *ptr;
+    if(pathmax==0){
+        errno=0;
+        if((pathmax=pathconf("/",_PC_PATH_MAX))<0)
+                {
+                    if(errno == 0)
+                    {
+                pathmax=PATH_MAX_GUESS;
+
+                    }
+                else{
+                err_sys("pathconf error for _PC_PATH_MAX");
+                }
+                }
+        else
+                pathmax++;
+        }
+    if((ptr=malloc(pathmax+1))==NULL)
+        err_sys("malloc error for pathname");
+    if(size != NULL)
+        *size=pathmax+1;
+    return(ptr);
+}
+
+void set_fl(int fd,int flags)  // flags are file status flags to turn on
+{
+    int val;
+    if((val = fcntl(fd,F_GETFL,0))<0)
+        err_sys("fcntl F_GETFL error");
+    val |= flags;
+    if(fcntl(fd,F_SETFL,val)<0)
+        err_sys("fcntl F_SETFL error");
+}
+
+void crl_fl(int fd,int flags)  // flags are file status flags to turn on
+{
+    int val;
+    if((val = fcntl(fd,F_GETFL,0))<0)
+        err_sys("fcntl F_GETFL error");
+    val &= ~flags;
+    if(fcntl(fd,F_SETFL,val)<0)
+        err_sys("fcntl F_SETFL error");
+}
+int open_max(void){
+   if(openmax == 0){
+   errno=0;
+   if((openmax=sysconf(_SC_OPEN_MAX))<0){
+        if(errno == 0)
+        {
+   openmax=OPEN_MAX_GUESS;
+        }
+        else{
+   err_sys("sysconf error for _SC_OPEN_MAX");
+        }
+   }
+   }
+   return(openmax);
 }
