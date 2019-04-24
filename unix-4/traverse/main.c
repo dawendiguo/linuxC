@@ -5,7 +5,7 @@
 #include <dirent.h>
 #include <limits.h>
 
-typedef int Myfunc(const char *,const struct *,int);
+typedef int Myfunc(const char *,const struct stat *,int);
     //function type that's called for each filename
 static Myfunc myfunc;
 static int myftw(char *,Myfunc *);
@@ -25,13 +25,13 @@ int main(int argc,char *argv[]){
     if( (ntot = nreg + ndir + nblk + nchr + nfifo + nslink + nsock ) == 0){
         ntot = 1;           //avoid divide by 0,print 0 for all counts;
     }
-    printf("regular flies = %71d,%5.2f %%\n",nreg,nreg*100.0/ntot);
-    printf("directories flies = %71d,%5.2f %%\n",ndir,ndir*100.0/ntot);
-    printf("block special flies = %71d,%5.2f %%\n",nblk,nblk*100.0/ntot);
-    printf("char special flies = %71d,%5.2f %%\n",nchr,nchr*100.0/ntot);
-    printf("FIFOs flies = %71d,%5.2f %%\n",nfifo,nfifo*100.0/ntot);
-    printf("symbollic flies = %71d,%5.2f %%\n",nslink,nslink*100.0/ntot);
-    printf("sockets flies = %71d,%5.2f %%\n",nsock,nsock*100.0/ntot);A
+    printf("regular flies = %7ld,%5.2f %%\n",nreg,nreg*100.0/ntot);
+    printf("directories flies = %7ld,%5.2f %%\n",ndir,ndir*100.0/ntot);
+    printf("block special flies = %7ld,%5.2f %%\n",nblk,nblk*100.0/ntot);
+    printf("char special flies = %7ld,%5.2f %%\n",nchr,nchr*100.0/ntot);
+    printf("FIFOs flies = %7ld,%5.2f %%\n",nfifo,nfifo*100.0/ntot);
+    printf("symbollic flies = %7ld,%5.2f %%\n",nslink,nslink*100.0/ntot);
+    printf("sockets flies = %7ld,%5.2f %%\n",nsock,nsock*100.0/ntot);
 
     exit(ret);
 }
@@ -45,7 +45,7 @@ int main(int argc,char *argv[]){
 #define FTW_DNR 3   //directory that can't be read
 #define FTW_NS 4    //file that we can't stat
 
-static char *fullpath       //contain full pathname for ervery file
+static char *fullpath;       //contain full pathname for ervery file
     
 static int                  //we return whatever func() returns
 myftw(char *pathname,Myfunc *func){
@@ -72,5 +72,65 @@ dopath(Myfunc* func){
 
     if(lstat(fullpath,&statbuf) < 0)
         return(func(fullpath, &statbuf, FTW_NS));       //STAT ERROR
-         
+   if(S_ISDIR(statbuf.st_mode) == 0)                        //not a directory
+        return(func(fullpath,&statbuf,FTW_F));
+   /*
+    * It's a directory. First call func() for the directory,
+    * then proocess each filename in the directory.
+    */
+    if( (ret = func(fullpath,&statbuf,FTW_D)) != 0)
+        return(ret);
+    ptr = fullpath + strlen(fullpath);          //point to end of fullpath
+    *ptr++ = '/';
+    *ptr = 0;
+
+    if( ( dp = opendir(fullpath) ) == NULL) 
+        return(func(fullpath,&statbuf,FTW_DNR));            //can't read directory
+   
+   while( (dirp = readdir(dp)) != NULL){
+        if( strcmp(dirp->d_name,"..") == 0)
+
+                continue;           //ignore dot and dot-dot
+        if( strcmp(dirp->d_name,".") == 0)
+
+                continue;           //ignore dot and dot-dot
+       strcpy(ptr,dirp->d_name);            //append name after slash
+        puts(fullpath);
+       if((ret = dopath(func)) != 0)        //recursive
+            break;                              //time to leave
+   }
+   ptr[-1] = 0;     //erase everything from slash onwards
+
+   if(closedir(dp) < 0)
+            err_ret("can't close directory %s",fullpath);
+   return(ret);         
+}
+
+static int myfunc(const char *pathname,const struct stat *statptr,int type){
+    switch(type){
+        case   FTW_F:
+            switch (statptr->st_mode & S_IFMT){
+                case S_IFREG:   nreg++;     break;
+                case S_IFBLK:    nblk++;     break;
+                case S_IFCHR:   nchr++;     break;
+                case S_IFIFO:    nfifo++;     break;
+                case S_IFLNK:   nslink++;   break;
+                case S_IFSOCK:  nsock++;    break;
+                case S_IFDIR:
+                    err_dump("for S_IFDIR for %s",pathname);
+            }
+            break;
+        case FTW_D:
+            ndir++;
+            break;
+        case FTW_DNR:
+            err_ret("can't read directory %s",pathname);
+            break;
+        case FTW_NS:
+            err_ret("stat error for %s",pathname);
+        default:
+            err_dump("unknow type %d for pathname %s",type,pathname);
+    }
+
+    return(0);
 }
