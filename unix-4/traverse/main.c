@@ -95,8 +95,8 @@ dopath(Myfunc* func){
 
                 continue;           //ignore dot and dot-dot
        strcpy(ptr,dirp->d_name);            //append name after slash
-        puts(fullpath);
-       if((ret = dopath(func)) != 0)        //recursive
+       puts(fullpath);
+       if(ret = dopath(func) != 0)        //recursive
             break;                              //time to leave
    }
    ptr[-1] = 0;     //erase everything from slash onwards

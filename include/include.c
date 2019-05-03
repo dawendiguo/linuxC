@@ -199,8 +199,10 @@ void pr_exit(int status)
 }
 
 //alloc memery for save path name
-char *path_alloc(int *size){            //also return allocated size, if nonnull
-    char *ptr;
+char *
+path_alloc(long *size){            //also return allocated size, if nonnull
+   
+   char *ptr;
     if(pathmax==0){                     //system not define path max size
         errno=0;
         if((pathmax=pathconf("/",_PC_PATH_MAX))<0)      //system not set path max ,this will shuld run.path max get size "/" directory path size.if "/" not null. < 0 content not set.
@@ -208,7 +210,6 @@ char *path_alloc(int *size){            //also return allocated size, if nonnull
                     if(errno == 0)              // no error
                     {
                     pathmax=PATH_MAX_GUESS;
-
                     }
                     else{                       // get "/" directory path_max error
                     err_sys("pathconf error for _PC_PATH_MAX");
@@ -217,7 +218,7 @@ char *path_alloc(int *size){            //also return allocated size, if nonnull
         else                                    //if run this pathmx is "/" directory path max
                 pathmax++;
     }
-    if((ptr=malloc(pathmax+1))==NULL)
+    if((ptr=malloc(pathmax+1)) == NULL)
         err_sys("malloc error for pathname");
     if(size != NULL)
         *size=pathmax+1;

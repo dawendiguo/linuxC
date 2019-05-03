@@ -22,7 +22,7 @@ typedef void Sigfunc(int);			//for signal handlers
 #define min(a,b) ((a) < (b) ? (a) : (b))
 #define max(a,b) ((a) > (b) ? (a) : (b) )
 												//prototypes for you own functions
-char *path_alloc(int *);						// Program 2.2
+char *path_alloc(long *);						// Program 2.2
 int open_max(void);									// Program 2.3
 void clr_fl(int,int);							  // Program 3.5
 void set_fl(int,int);								// Program 3.5

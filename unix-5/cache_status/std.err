@@ -1,0 +1,4 @@
+enter any characters
+stream = stdin full buffered
+stream = stdout full buffered
+stream = stderr unbuffered
