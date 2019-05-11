@@ -10,14 +10,21 @@ int main(void){
     else if(pid == 0){
         if( (pid = fork() ) <0)
             err_sys("fork error");
-        else if( pid > 0)
+        else if( pid > 0){
+            printf("first child parent pid = %d \n",getppid());
+            if(waitpid(pid,NULL,WNOHANG) != pid)
+                    err_sys("waitpid error");
             exit(0);
-
+        }
+        else{
         sleep(2);
         printf("second child ,parent pid = %d\n",getppid());
         exit(0);
+        }
     }
-    if(waitpid(pid,NULL,0) != pid)
-        err_sys("waitpid error");
+    else
+        printf("main parent pid %d\n",getpid());
+   /* if(waitpid(pid,NULL,0) != pid)
+        err_sys("waitpid error");*/
     exit(0);
 }
