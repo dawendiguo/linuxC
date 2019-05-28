@@ -7,6 +7,8 @@
 #include <stdlib.h>					//for convenience
 #include <string.h>				 //for convenience
 #include <unistd.h>					//for convenience
+#include <signal.h>
+#include <errno.h>
 
 #define MAXLINE 4096				//max line length
 #define FILE_MODE (S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)
