@@ -8,6 +8,7 @@ main(void){
     if(signal(SIGUSR1,my_user1) == SIG_ERR)
             err_sys("signal SIGUSR1 error");
     sigpending(SIGUSR1);
+    pr_mask("in main :");
     pause();
     exit(0);
 }
