@@ -3,7 +3,7 @@
 #include<errno.h>
 #include "ourhdr.h"
 
-int system(const char *cmdstring){
+int my_system(const char *cmdstring){
     pid_t pid;
     int status;
     
