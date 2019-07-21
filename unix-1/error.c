@@ -6,6 +6,6 @@ int main(int argc,char *argv[]){
 
     errno = ENOENT;
     perror(argv[0]);
-
+  
     exit(0);
 }

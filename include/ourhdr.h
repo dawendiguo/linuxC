@@ -35,7 +35,7 @@ Sigfunc *signal_intr(int,Sigfunc *);			// Program 10.13
 int tty_cbreak(int);								// Program 11.10
 int tty_raw(int);										// Program 11.10
 int tty_reset(int);									// Program 11.10
-int tty_atexit(void);								// Program 11.10
+void tty_atexit(void);								// Program 11.10
 #ifdef ECHO						//only if <termios.h> has benn included
 struct termios *tty_termios(void);  // Program 11.10
 #endif 
