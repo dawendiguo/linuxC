@@ -73,9 +73,9 @@ int lock_reg(int,int,int,off_t,int,off_t);		// Program 12.2
 	lock_reg(fd,F_SETLK,F_UNLCK,offset,whence,len)
 
 pid_t lock_test(int,int,off_t,int,off_t);			// Program 12.3
-#define is_readlick(fd,offset,whence,len) \
+#define is_readlock(fd,offset,whence,len) \
 	lock_test(fd,F_RDLCK,offset,whence,len)
-#define is_writelick(fd,offset,whence,len) \
+#define is_writelock(fd,offset,whence,len) \
 	lock_test(fd,F_RDLCK,offset,whence,len)
 
 void err_dump(const char *, ...);				// Appendix B
