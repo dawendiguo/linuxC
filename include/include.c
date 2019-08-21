@@ -6,6 +6,8 @@
 #include<limits.h>                          //define some system variable 
 #include<termio.h>
 #include "pipeTellWait.c"                   //pipe implement Tell_wait , Tell_parent,Tell_child,wait_parent,wait_child
+#include "buf_args.c"
+#include <sys/socket.h>
 
 //get system Open max
 #ifdef OPEN_MAX
@@ -384,4 +386,188 @@ tty_atexit(){
 struct termios *
 tty_termios(void){
         return(&save_termios);
+}
+
+/* s_pipe */
+int
+s_pipe(int fd[2]){
+        return(socketpair(AF_UNIX,SOCK_STREAM,0,fd));
+}
+
+
+/* file descript pass and receive */
+#include <sys/socket.h>
+#include <sys/uio.h>
+#include <stddef.h>
+
+static struct cmsghdr *cmptr = NULL;        /* buffer is malloc'ed first time */
+#define CONTROLLEN (sizeof(struct cmsghdr) + sizeof(int))
+/* size of control buffer to send/recv one file  descriptor */
+
+
+/* Pass a file descriptor to another process.
+ * if fd < 0, then -fd is sent back instead as the error status */
+
+int 
+send_fd(int clifd,int fd){
+        struct iovec iov[1];
+        struct msghdr msg;
+        char buf[2];
+
+        iov[0].iov_base = buf;
+        iov[0].iov_len = 2;
+        msg.msg_iov = iov;
+        msg.msg_iovlen = 1;
+        msg.msg_name = NULL;
+        msg.msg_namelen = 0;
+        if(fd < 0){
+                msg.msg_control = NULL;
+                msg.msg_controllen = 0;
+                buf[1] = -fd;                   /* nonzero status means error */
+                if(buf[1] == 0)
+                        buf[1] = 1;             /* -256,etc. would screw up protocol */
+        }
+        else{
+                if(cmptr == NULL && (cmptr = malloc(CONTROLLEN)) == NULL)
+                        return(-1);
+                cmptr->cmsg_level = SOL_SOCKET;
+                cmptr->cmsg_type = SCM_RIGHTS;
+                cmptr->cmsg_len = CONTROLLEN;
+                msg.msg_control = (caddr_t) cmptr;
+                msg.msg_controllen = CONTROLLEN;
+                *(int *)CMSG_DATA(cmptr) = fd;              /* the fd to pass */
+                buf[1] = 0;                             /* null byte flag to recv_fd(); */
+
+                if(sendmsg(clifd,&msg,0) != 2)
+                        return(-1);
+                return(0);
+        }
+}
+
+/* receive a file descriptor from another process (a server).
+ * in addition,any data received from the server is passed
+ * to (*userfunc)(STDERR_FILENO,buf,nbytes). we hava a 2-byte
+ * protocol for receiving the fd from send_fd(). */
+int
+recv_fd(int servfd,ssize_t (*userfunc)(int,const void *,size_t)){
+        int newfd,nread,status;
+        char *ptr,buf[MAXLINE];
+        struct iovec iov[1];
+        struct msghdr msg;
+
+        status = -1;
+        for(;;){
+                iov[0].iov_base = buf;
+                iov[0].iov_len = sizeof(buf);
+                msg.msg_iov = iov;
+                msg.msg_iovlen = 1;
+                msg.msg_name = NULL;
+                msg.msg_namelen = 0;
+                if(cmptr == NULL && (cmptr == malloc(CONTROLLEN)) == NULL){
+                        return(-1);
+                }
+                
+                msg.msg_control = (caddr_t)cmptr;
+                msg.msg_controllen = CONTROLLEN;
+
+
+                if((nread = recvmsg(servfd,&msg,0)) < 0)
+                        err_ret("revcmsg error");
+                else if( nread == 0){
+                        err_ret("connection closed by server");
+                        return(-1);
+                }
+
+                /* see if this is the final data with null & status.
+                 * Null must be net to last byte of buffer, status
+                 * byte is last byte. Zero status means there must
+                 * be a file descriptor to receive. */
+                for(ptr = buf;ptr < &buf[nread];){
+                        if(*ptr++ == 0){
+                                if(ptr != &buf[nread-1])
+                                        err_dump("message format error");
+                                status =  *ptr & 255;
+                                if(status == 0){
+                                        if(msg.msg_controllen != CONTROLLEN)
+                                                err_dump("status = 0 but no fd");
+                                        newfd = *(int *)CMSG_DATA(cmptr);   /* new descriptor */
+                                }
+                        else{
+                                newfd = -status;
+                        }
+                        nread -= 2;
+                }
+        }
+        if(nread > 0)
+                if((*userfunc)(STDERR_FILENO,buf,nread) != nread)
+                        return(-1);
+        if(status >= 0)                         /* final data has arrived */
+                return(newfd);                  /* descriptor, or -status */
+      }
+}
+
+/* Used when we had palnned to send an fd using send_fd()
+ * but ancountered an error instead. we send the error back
+ * using the send_fd()/ercv_fd() protocol */
+int
+send_err(int clifd,int errcode,const char *msg){
+        int n;
+
+        if( (n = strlen(msg)) > 0)
+                if(writen(clifd,msg,n) != n)
+                        return(-1);
+
+        if(errcode >= 0)
+                errcode = -1;
+
+        if(send_fd(clifd,errcode) < 0)
+                return(-1);
+        return(0);
+}
+
+/* read n bytes from file descriptor fd */
+ssize_t readn(int fd,void * vptr,size_t n){
+        size_t nleft;
+        ssize_t nread;
+        char *ptr;
+
+        ptr = vptr;
+        nleft = n;
+        while( nleft > 0){
+                if( (nread = read(fd,ptr,nleft)) < 0){
+                        if(errno == EINTR)
+                                nread = 0;  /* continue read */
+                        else
+                                return -1;
+                }
+                else if(nread == 0){
+                        break;      /* file EOF */
+                }
+
+                nleft -= nread;         
+                ptr += nread;         /* ptr left move nread; */
+        }
+        return(n-nleft);    /* return >= 0 */
+}
+
+/* write n bytes to file descriptor fd */
+ssize_t writen(int fd,const void *vptr,size_t n){
+        size_t nleft;
+        ssize_t nwritten;
+        const char *ptr;
+
+        ptr = vptr;
+        nleft = n;
+        while(nleft > 0){
+                if((nwritten = write(fd,ptr,nleft)) <= 0){
+                        if(nwritten < 0 && errno ==  EINTR)
+                                nwritten = 0;   /* continue write */
+                        else
+                                return -1;
+                }
+
+                nleft -= nwritten;
+                ptr += nwritten;
+        }
+        return n;
 }
