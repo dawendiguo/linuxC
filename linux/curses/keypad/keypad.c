@@ -9,7 +9,7 @@ int main(){
 
         initscr();
 
-        crmode();
+        cbreak();
         keypad(stdscr,TRUE);
         noecho();
         clear();
@@ -22,6 +22,7 @@ int main(){
                 move(7,5);
                 clrtoeol();
 
+                attron(A_BOLD);
                 if((key >= 'A' && key <= 'Z') ||
                    (key >= 'a' && key <= 'z'))
                         printw("You press char key: %c",(char)key);
@@ -41,6 +42,7 @@ int main(){
                                 default: printw("Unmatched - %d",key); break;
                         } /* switch */
                 } /* else */
+        attroff(A_BOLD);
         refresh();
         key = getch();
         } /* while */
