@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <curses.h>
+#include <string.h>
 
 #define MAX_STRING 80
 #define MAX_ENTRY 1024
@@ -31,6 +32,7 @@ void add_record(void);
 void count_cds(void);
 void find_cd(void);
 void list_tracks(void);
+void remove_tracks(void);
 void remove_cd(void);
 void update_cd(void);
 
